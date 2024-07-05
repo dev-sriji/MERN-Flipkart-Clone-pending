@@ -1,0 +1,19 @@
+{
+  "name": "flipkart",
+  "version": "1.0.0",
+  "description": "Flipkart Clone Made By Dev-Sriji",
+  "main": "./Backend/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "nodemon Backend/index.js --watch",
+    "start": "node Backend/index.js"
+  },
+  "author": "dev-sriji",
+  "license": "ISC",
+  "dependencies": {
+    "colors": "^1.4.0",
+    "express": "^4.19.2",
+    "mysql": "^2.18.1",
+    "nodemon": "^3.1.4"
+  }
+}
