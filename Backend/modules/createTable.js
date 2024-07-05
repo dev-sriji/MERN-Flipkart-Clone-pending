@@ -11,10 +11,10 @@ const createTableQueries = [
         user_name VARCHAR(255) NOT NULL,
         password VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL UNIQUE,
-        phone INT NOT NULL,
+        phone VARCHAR(255) NOT NULL,
         address VARCHAR(255) NOT NULL,
-        registration_date BIGINT NOT NULL,
-        image VARCHAR(255) DEFAULT 'default.jpg' NOT NULL
+        registration_date DATE NOT NULL,
+        profile_pic VARCHAR(255) DEFAULT 'default.jpg' NOT NULL
       );
     `
   },  
