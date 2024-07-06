@@ -36,7 +36,9 @@ const createTableQueries = [
     query: `
       CREATE TABLE IF NOT EXISTS brand (
         brand_id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        brand_name VARCHAR(255) NOT NULL
+        brand_name VARCHAR(255) NOT NULL UNIQUE,
+        brand_owner_id INT UNSIGNED NOT NULL UNIQUE,
+        CONSTRAINT fk_brand_owner_id FOREIGN KEY (brand_owner_id) REFERENCES user(user_id)
       );
     `
   },
@@ -86,7 +88,7 @@ const createTableQueries = [
     query: `
       CREATE TABLE IF NOT EXISTS cart (
         cart_id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        user_id INT UNSIGNED NOT NULL,
+        user_id INT UNSIGNED NOT NULL UNIQUE,
         CONSTRAINT fk_cart_user_id FOREIGN KEY (user_id) REFERENCES user(user_id)
       );
     `
@@ -113,12 +115,12 @@ const createTableQueries = [
         cart_id INT UNSIGNED NOT NULL,
         product_id INT UNSIGNED NOT NULL,
         quantity INT NOT NULL,
-        review VARCHAR(255) NOT NULL,
         CONSTRAINT fk_cart_item_cart_id FOREIGN KEY (cart_id) REFERENCES cart(cart_id),
         CONSTRAINT fk_cart_item_product_id FOREIGN KEY (product_id) REFERENCES product(product_id)
       );
     `
   }
+  
 ];
 
 // Function to execute table creation queries
