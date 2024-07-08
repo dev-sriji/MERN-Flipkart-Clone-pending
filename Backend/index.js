@@ -36,19 +36,19 @@ app.post('/api/user/register/', async (req, res) => {   //1.1. Registration: POS
 })
 
 //1.2. Login: POST /api/users/login --pending
-app.post('/api/user/auth/',(req,res) => {
-    const { id, email,password } = req?.body;
-    if(!password || (!email && !id)) return res.status(501).json({"result" : "check your fields"})
-    db.query("SELECT * FROM user WHERE (user_id = ? AND password = ?) OR (email = ? AND password = ?);",[id,password,email,password],(error, result, fields) => {
+app.post('/api/user/auth/', (req, res) => {
+    const { id, email, password } = req?.body;
+    if (!password || (!email && !id)) return res.status(501).json({ "result": "check your fields" })
+    db.query("SELECT * FROM user WHERE (user_id = ? AND password = ?) OR (email = ? AND password = ?);", [id, password, email, password], (error, result, fields) => {
         if (result.length > 0) {
             return res.status(200).json({
                 "allowUserToLogin": true,
-                "reason" : result
+                "reason": result
             })
         } else {
             res.status(500).send({
-                "allowUserToLogin" : false, 
-                "reason" : "Invalid credentials"
+                "allowUserToLogin": false,
+                "reason": "Invalid credentials"
             })
         }
     })
@@ -58,7 +58,7 @@ app.get('/api/user/profile/', async (req, res) => {     //1.3.1. Get: GET /api/u
     const id = req.query.userid;
     const query = "SELECT * FROM user WHERE user_id = ?"
     db.query(query, [id], (error, result, fields) => {
-        if (error) return res.status(500).json({"result":error})
+        if (error) return res.status(500).json({ "result": error })
         res.status(200).json(result)
     })
 })
@@ -225,7 +225,7 @@ app.get('/api/cart/fetch', (req, res) => {  //4.2. Get Cart Items: GET /api/cart
 
 
 app.put('/api/cartitem/update', (req, res) => {    //4.3. Update Cart Item Quantity: PUT /api/cart/items/:cartItemId
-    const {cartitemid, quantity} = req?.body
+    const { cartitemid, quantity } = req?.body
     db.query("SELECT * FROM cart_item WHERE cart_item_id = ?", [cartitemid], (error, result, field) => {
         if (result.length > 0) {
             const query = "UPDATE `cart_item` SET quantity = ? WHERE cart_item_id=?"
@@ -234,13 +234,12 @@ app.put('/api/cartitem/update', (req, res) => {    //4.3. Update Cart Item Quant
                 res.status(200).send(result)
             })
         } else {
-            res.status(500).send({"result" : "Error : " + error})
+            res.status(500).send({ "result": "Error : " + error })
         }
     })
 })
 
-//4.4. Remove Item from Cart: DELETE /api/cart/items/:cartItemId
-app.delete('/api/cartitem/delete/:id',(req,res) => {
+app.delete('/api/cartitem/delete/:id', (req, res) => {    //4.4. Remove Item from Cart: DELETE /api/cart/items/:cartItemId
     const cartitemid = req?.params?.id
     db.query("SELECT * FROM `cart_item` WHERE `cart_item_id` = ?", [cartitemid], (error, result, field) => {
         console.log(result)
@@ -251,11 +250,51 @@ app.delete('/api/cartitem/delete/:id',(req,res) => {
                 res.status(200).send(result1)
             })
         } else {
-            res.status(500).send({"result" : "Error : " + error})
+            res.status(500).send({ "result": "Error : " + error })
         }
     })
 })
 
+//4.5. Place Order: POST /api/orders/place
+app.post("/api/order/place/", (req, res) => {
+    const { userid, cartid } = req.body;
+    const insertOrderQ = "INSERT INTO `orders` (user_id, order_date, total_amount, status) VALUES (?, NOW(), -1, 'pending');"
+    db.query(insertOrderQ, [userid], (error, result, fields) => {
+        if (error) {
+            return res.status(500).json({ "result": "error", "message": error.message });
+        }
 
+        const orderID = result.insertId;
+
+        const selectQ = "SELECT ci.product_id, ci.quantity, p.price FROM `cart_item` ci JOIN `product` p ON ci.product_id = p.product_id WHERE ci.cart_id = ?;"
+        db.query(selectQ, [cartid], (error1, result1, fields1) => {
+            if (error) {
+                return res.status(500).json({ "result": "error", "message": error1.message });
+            }
+            // res.status(500).json(result1)
+            if (result1.length < 1) {
+                return res.status(500).json({ "result": "error", "message": error1.message });
+            }
+            let status = true;
+            result1.forEach(item => {
+                const { product_id, quantity, price } = item;
+                const insertQ = "INSERT INTO `order_item` (product_id, order_id, quantity, price) VALUES (?, ?, ?, ?)";
+                db.query(insertQ, [product_id, orderID, quantity, price], (error2, result2, fields2) => {
+                    if (error2) {
+                        console.log(error2)
+                        status = false
+                    }
+                    else {
+                        console.log(result)
+                        status = true
+                    }
+                })
+            });
+            if (!status) return res.status(500).json("error");
+            return res.status(200).json("successfull")
+        })
+
+    })
+})
 
 app.listen(3000)
