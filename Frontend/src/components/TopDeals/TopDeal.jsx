@@ -1,24 +1,26 @@
 import React from 'react'
+import gown from '../../assets/types/cloth1.jpg'
 
 const TopDeal = (props) => {
-  
-    let Prods = <div className='topdeal1 grayback'>
-        <h3>Top Deals on {props.cat[0].toUpperCase() + props.cat.slice(1)}</h3>
-        <div className='topdeal--cards'>
-        {props.prod.map((pro,index) =>{
-            return <div key={index} className='topdeal--card'>
-                <img className='topdeal--img hoverscale' src={pro.img}/>
-                <p className='topdeal--name'>{pro.name[0].toUpperCase() + pro.name.slice(1)}</p>
-                <b>Upto 30% Off </b>
+    const pro= props.product
+console.log(props)
+    const Prods = <div className='topdeal--cards'>
+            <div className='topdeal--card'>
+                <img className='topdeal--img hoverscale' src={gown} />
+                <p className='topdeal--name'>{pro.product_name[0].toUpperCase() + pro.product_name.slice(1)}</p>
+                <p className='topdeal--desc'>pro.product_desc</p>
+                <div className='topdeal--details'><p>4.9 ⭐</p>
+                    <p className='price'>₹{pro?.price}  <s className='topdeal--desc'>₹1,377</s></p>
+                    <p className='free-delivery'>Free Delivery</p>
+                </div>
             </div>
-        })}</div>
-    </div>
-    
+        </div>
+
     return (
-    <>
-        {Prods}
-    </>
-  )
+        <>
+            {Prods}
+        </>
+    )
 }
 
 export default TopDeal

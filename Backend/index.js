@@ -2,10 +2,11 @@ import express from "express"
 import createTables from "./modules/createTable.js"
 import db from "./config/dbConfig.js"
 import colors from "colors"
-import bodyParser from "body-parser"
-
+// import bodyParser from "body-parser"
+import cors from "cors"
 const app = express()
-app.use(bodyParser.json())
+// app.use(bodyParser.json())
+app.use(cors())
 createTables()
 
 app.get('/api/tables', (req, res) => {
@@ -81,21 +82,37 @@ app.put('/api/user/update/profile/', async (req, res) => {  //1.3.2. Update: PUT
 
 
 // 2.PRODUCT API
-
+//name.bold desc.gray rating price.bold free delivery
 app.get('/api/product/list/', async (req, res) => {  //2.1. Get All Products: GET /api/products
-    const query = "SELECT * FROM `product`"
+    const query = `SELECT * FROM \`product\``
     db.query(query, (error, result, fields) => {
-        if (error) throw error
+        if (error) res.status(500).json(error)
         res.status(200).json(result)
     })
 })
 
+/*
+ const query = `SELECT p.\`product_id\`,
+                    p.\`image\`,
+                    p.\`product_name\`,
+                    p.\`description\`,
+                    p.\`price\`,
+                    c.\`category_name\` AS \`category\`
+                    FROM
+                        \`product\` p
+                    JOIN
+                        \`category\` c on p.\`category_id\` = c.\`category_id\`;
+                    `//rating pending
+ */
+
 app.get('/api/product/fetch', async (req, res) => {   //2.2. Get Product by ID: GET /api/products/:productId
-    const id = req.query.productid
-    const query = "SELECT * FROM `product` WHERE `product_id` = ?"
-    db.query(query, [id], (error, result, fields) => {
+    const productid = req.query?.productid 
+    const categoryid = req.query?.categoryid
+    const q = productid? "product_id" : "category_id"
+    const query = `SELECT * FROM \`product\` WHERE \`${q}\` = ?`
+    db.query(query, [productid || categoryid], (error, result, fields) => {
         if (error) res.status(500).json("error while fetching product data")
-        res.status(200).send(result[0])
+        res.status(200).send(result)
     })
 })
 
@@ -255,46 +272,106 @@ app.delete('/api/cartitem/delete/:id', (req, res) => {    //4.4. Remove Item fro
     })
 })
 
-//4.5. Place Order: POST /api/orders/place
-app.post("/api/order/place/", (req, res) => {
+
+app.post("/api/order/place/", (req, res) => {   //4.5. Place Order: POST /api/orders/place
     const { userid, cartid } = req.body;
     const insertOrderQ = "INSERT INTO `orders` (user_id, order_date, total_amount, status) VALUES (?, NOW(), -1, 'pending');"
-    db.query(insertOrderQ, [userid], (error, result, fields) => {
-        if (error) {
-            return res.status(500).json({ "result": "error", "message": error.message });
+    db.beginTransaction((err1) => {
+        if (err1) {
+            return res.status(500).json({ "result": "error", "message": err1.message });
         }
 
-        const orderID = result.insertId;
-
-        const selectQ = "SELECT ci.product_id, ci.quantity, p.price FROM `cart_item` ci JOIN `product` p ON ci.product_id = p.product_id WHERE ci.cart_id = ?;"
-        db.query(selectQ, [cartid], (error1, result1, fields1) => {
+        db.query(insertOrderQ, [userid], (error, result, fields) => {
             if (error) {
-                return res.status(500).json({ "result": "error", "message": error1.message });
+                return res.status(500).json({ "result": "error", "message": error.message });
             }
-            // res.status(500).json(result1)
-            if (result1.length < 1) {
-                return res.status(500).json({ "result": "error", "message": error1.message });
-            }
-            let status = true;
-            result1.forEach(item => {
-                const { product_id, quantity, price } = item;
-                const insertQ = "INSERT INTO `order_item` (product_id, order_id, quantity, price) VALUES (?, ?, ?, ?)";
-                db.query(insertQ, [product_id, orderID, quantity, price], (error2, result2, fields2) => {
-                    if (error2) {
-                        console.log(error2)
-                        status = false
-                    }
-                    else {
-                        console.log(result)
-                        status = true
-                    }
-                })
-            });
-            if (!status) return res.status(500).json("error");
-            return res.status(200).json("successfull")
+            const orderID = result.insertId;
+
+            const selectQ = "SELECT ci.product_id, ci.quantity, p.price FROM `cart_item` ci JOIN `product` p ON ci.product_id = p.product_id WHERE ci.cart_id = ?;"
+            db.query(selectQ, [cartid], (error1, result1, fields1) => {
+                if (error) {
+                    return db.rollback(() => {
+                        res.status(500).json({ "result": "error", "message": error.message });
+                    })
+
+                }
+                // res.status(500).json(result1)
+                if (result1.length < 1) {
+                    return db.rollback(() => {
+                        res.status(500).json({ "result": "error" });
+                    })
+                }
+
+                result1.forEach((item, index) => {
+                    const { product_id, quantity, price } = item;
+                    const insertQ = "INSERT INTO `order_item` (product_id, order_id, quantity, price) VALUES (?, ?, ?, ?)";
+                    db.query(insertQ, [product_id, orderID, quantity, price], (error2, result2, fields2) => {
+                        if (error2) {
+                            console.log(error2)
+                            return db.rollback(() => {
+                                res.status(500).json({ "Error Updating Cart Item : ": error2 })
+                            })
+
+                        }
+                        else {
+                            // console.log(result)
+                            if ((index + 1) === result1.length) {
+                                const deleteQ = "DELETE FROM `cart_item` WHERE `cart_id` = ?"
+                                db.query(deleteQ, [cartid], (error3, result3, fields3) => {
+                                    if (error3) return res.status(500).json({ "result": error3 });
+                                    return res.status(200).json({ "result": "inserted items successfully" })
+                                })
+
+                            }
+                        }
+
+                    })
+
+                });
+            })
+
         })
 
     })
+    db.commit((errCommit) => {
+        if (errCommit) {
+            return db.rollback(() => {
+                res.status(500).json({ "result": "error", "message": errCommit.message });
+            });
+        }
+
+        return res.status(200).json({ "result": "Order placed successfully" });
+    });
 })
+
+app.get('/api/orders/list/', (req, res) => {    //4.6. Get User Orders: GET /api/orders/list 
+    const userid = req.query?.userid
+    const orderid = req.query?.orderid //pass any one of them
+    if (userid) {
+        const query = "SELECT * FROM `orders` WHERE `user_id` = ?";
+        db.query(query, [userid], (error, result, fields) => {
+            res.status(200).json(result)
+        })
+    } else if (orderid) {
+        const query1 = "SELECT * FROM `order_item` WHERE `order_id` = ?";
+        db.query(query1, [orderid], (error1, result1, fields1) => {
+            res.status(200).json(result1)
+        })
+    }
+})
+
+/*
+ *5. Reviews
+
+ *5.1. Add Review: POST /api/reviews/add
+ *5.2. Get Reviews for a Product: GET /api/reviews/product/:productId
+
+ *6. Search and Filtering
+
+ *6.1. Search Products: GET /api/products/search?q=<search_query>
+ *6.2. Filter Products by Category: GET /api/products/category/:categoryId
+ *6.3. Filter Products by Brand: GET /api/products/brand/:brandId
+ */
+
 
 app.listen(3000)
